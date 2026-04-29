@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-1.0-blueviolet?style=for-the-badge" alt="Version"/>
+  <img src="https://img.shields.io/badge/Version-2.0-blueviolet?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/Python-3.10+-9b59b6?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
-  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-8e44ad?style=for-the-badge" alt="Platform"/>
+  <img src="https://img.shields.io/badge/Platform-Windows-8e44ad?style=for-the-badge" alt="Platform"/>
   <img src="https://img.shields.io/badge/License-MIT-a855f7?style=for-the-badge" alt="License"/>
 </p>
 
 <h1 align="center">⚡ Token Gen</h1>
-<p align="center"><b>Advanced Discord Account Generator with Auto Email Verification</b></p>
+<p align="center"><b>Discord Account Generator + Token Checker — all in one tool</b></p>
 <p align="center"><i>Made by SoliderX</i></p>
 
 ---
@@ -27,14 +27,26 @@
 
 ## 🚀 Features
 
+### [1] Token Generator
 | Category | Details |
 |---|---|
-| **Account Generation** | Fully automated Discord account creation via Brave browser + CDP |
+| **Account Generation** | Fully automated Discord account creation via browser + CDP |
 | **Email Verification** | Auto-verify via MS Graph (Hotmail pool), Hotmail007 API, or CyberTemp API |
-| **Captcha Solving** | Automated Captcha solver | Browser integrated |
-| **Proxy Support** | HTTP/SOCKS proxy rotation from `proxies.txt` |
-| **Stealth** | TLS fingerprint spoofing via `tls_client`, headless Brave with off-screen windows |
-| **Output** | Tokens saved to `output/valid.txt`, locked/invalid sorted automatically |
+| **Captcha Solving** | Browser-integrated automated captcha solver |
+| **Proxy Support** | HTTP proxy rotation from `input/proxies.txt` |
+| **Stealth** | TLS fingerprint spoofing via `tls_client`, headless Brave with off-screen
+
+### [2] Token Checker
+| Category | Details |
+|---|---|
+| **Input** | Reads tokens from `output/valid.txt` (generator output) |
+| **Multi-threaded** | Configurable thread count at runtime |
+| **Token Type** | Detects `unclaimed`, `email verified`, `phone verified`, `fully verified` |
+| **Account Age** | Calculates account age in months/years, sorted into subfolders |
+| **Nitro Detection** | Detects active Nitro subscriptions + available boost slots |
+| **Flagged Detection** | Flags spammer-flagged accounts |
+| **Proxy Support** | Reads from `input/proxies.txt` — auto falls back to proxyless on 407 |
+| **Output** | Results saved to `output/checker output/{YYYY-MM-DD HH-MM-SS}/` |
 
 ---
 
@@ -55,13 +67,30 @@ python main.py
 ### Prerequisites
 
 - **Python 3.10+**
-- **Brave Browser** installed (auto-detected on Windows/macOS/Linux)
+- **Brave Browser** installed (required for Token Generator only)
+
+---
+
+## 🖥️ Usage
+
+Run `python main.py` and select a tool:
+
+```
+  [1]  Token Generator
+  [2]  Token Checker
+
+  ▸ Select option :
+```
+
+**Token Generator** — prompts for threads and account count, then starts generating.
+
+**Token Checker** — prompts for threads, reads `output/valid.txt`, checks each token against the Discord API and saves categorised results to `output/checker output/{timestamp}/`.
 
 ---
 
 ## ⚙️ Configuration
 
-Edit `input/config.json`:
+### Token Generator — `input/config.json`
 
 ```json
 {
@@ -92,8 +121,16 @@ Edit `input/config.json`:
 | `hotmail_pool` | Use pre-loaded Hotmail accounts from `mails.json` |
 | `hotmail007` | Hotmail007 API — set `client_key` to enable |
 | `cybertemp` | CyberTemp temporary emails — set `api_key` to enable |
-| `proxy.enabled` | Enable proxy rotation |
-| `proxy.file` | Path to proxy list (one per line, `ip:port` or `user:pass@ip:port`) |
+| `proxy.enabled` | Enable proxy rotation for the generator |
+
+### Token Checker — `input/proxies.txt`
+
+One proxy per line. Supported formats:
+
+```
+host:port
+host:port:username:password
+```
 
 ---
 
@@ -101,32 +138,45 @@ Edit `input/config.json`:
 
 ```
 Token-Gen/
-├── main.py              # Main application
-├── requirements.txt     # Python dependencies
+├── main.py                        # Main application (Generator + Checker)
+├── requirements.txt               # Python dependencies
 ├── input/
-│   ├── config.json      # Tool configuration
-│   ├── mails.json       # Hotmail pool accounts
-│   ├── hotmails.txt     # Hotmail credentials
-│   └── proxies.txt      # Proxy list
+│   ├── config.json                # Generator configuration
+│   ├── mails.json                 # Hotmail pool accounts
+│   ├── hotmails.txt               # Hotmail credentials
+│   └── proxies.txt                # Proxy list (used by both tools)
 ├── output/
-│   ├── valid.txt        # Successfully generated tokens
-│   ├── invalid.txt      # Failed/invalid tokens
-│   └── locked.txt       # Locked tokens
+│   ├── valid.txt                  # Generated tokens (checker input)
+│   ├── invalid.txt                # Invalid tokens
+│   ├── locked.txt                 # Locked tokens
+│   └── checker output/
+│       └── YYYY-MM-DD HH-MM-SS/   # Per-run checker results
+│           ├── email verified.txt
+│           ├── fully verified.txt
+│           ├── unclaimed.txt
+│           ├── invalid.txt
+│           ├── locked.txt
+│           ├── flagged.txt
+│           ├── age/               # Sorted by account age
+│           └── boosts/            # Sorted by Nitro boost days
 └── README.md
 ```
-📞 SUPPORT
----
-Discord Server: https://discord.gg/uJraw4WXqd
 
-Join for: Free Support and upcoming Updates 
+---
+
+## 📞 Support
+
+**Discord Server:** https://discord.gg/uJraw4WXqd
+
+Join for free support and upcoming updates.
+
+---
 
 ## 💻 Tested On
 
 | OS | Status |
 |---|---|
 | Windows 10/11 | ✅ |
-| Ubuntu / Debian | ✅ |
-| macOS | ✅ |
 
 ---
 
