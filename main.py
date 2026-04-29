@@ -34,6 +34,9 @@ from truedriver import cdp
 import urllib3
 import base64
 import subprocess
+import concurrent.futures
+import ctypes
+import msvcrt
 
 # ============================================================================
 # CDP KEY SENDER — works headless, targets only the Brave/Chrome window
@@ -2244,6 +2247,276 @@ async def worker(thread_id: int = 1, browser=None):
 
 
 # ============================================================================
+# TOKEN CHECKER
+# ============================================================================
+
+def run_token_checker(num_threads: int):
+    """Token checker — reads tokens from output/valid.txt and checks them against Discord API."""
+    _base        = Path(__file__).parent
+    _tokens_file = _base / "output" / "valid.txt"
+
+    # ── Load tokens ──
+    if not _tokens_file.exists():
+        print(f"\n  {RED}valid.txt not found at {_tokens_file}{RESET}")
+        input(f"  {GRAY}press enter to continue...{RESET}  ")
+        return
+
+    with open(_tokens_file, "r") as _tf:
+        _tc_tokens = list(set(ln for ln in _tf.readlines() if ln.strip()))
+
+    if not _tc_tokens:
+        print(f"\n  {YELLOW}No tokens found in output/valid.txt{RESET}")
+        input(f"  {GRAY}press enter to continue...{RESET}  ")
+        return
+
+    # ── Settings (all checks enabled) ──
+    _tc_cfg  = {"main": {"proxyless": True, "threads": num_threads}}
+    _tc_sett = {"nitro": True, "age": True, "type": True, "flagged": True}
+
+    # ── Load proxies from input/proxies.txt ──
+    try:
+        with open(_base / "input" / "proxies.txt", "r") as _pf:
+            _tc_proxies = [ln.strip() for ln in _pf if ln.strip()]
+        if _tc_proxies:
+            _tc_cfg["main"]["proxyless"] = False
+    except Exception:
+        _tc_proxies = []
+
+    # ── Output folder: output/checker output/{date} {time}/ ──
+    os.makedirs(_base / "output", exist_ok=True)
+    os.makedirs(_base / "output" / "checker output", exist_ok=True)
+    _tc_out = str(_base / "output" / "checker output" / time.strftime('%Y-%m-%d %H-%M-%S'))
+    os.makedirs(_tc_out, exist_ok=True)
+
+    # ── Shared state (use single-element lists so nested scopes can mutate) ──
+    _LOCK      = threading.Lock()
+    _valid     = [0]; _invalid = [0]; _locked  = [0]
+    _nitro     = [0]; _flagged = [0]; _current = [0]
+    _total     = len(_tc_tokens)
+    _done      = [False]
+    _start     = time.time()
+    _tc_retries = {}   # token → retry count; max 2 retries per token
+
+    # ── Console title updater ──
+    def _tc_update_title():
+        try:
+            while not _done[0]:
+                time.sleep(0.03)
+                _el  = time.time() - _start
+                _cpm = round((_current[0] / _el) * 60) if _el > 0 else 0
+                ctypes.windll.kernel32.SetConsoleTitleW(
+                    f"Token Checker  |  Valid: {_valid[0]}  |  Invalid: {_invalid[0]}  |  "
+                    f"Locked: {_locked[0]}  |  Remaining: {len(_tc_tokens)}  |  "
+                    f"Checked: {_current[0] / _total * 100:.1f}%  |  CPM: {_cpm}"
+                )
+        except Exception:
+            pass
+
+    # ── Log helpers ──
+    def _tc_ok(msg, tok, **kw):
+        _kstr = "  ".join(f"{GRAY}[{WHITE}{k}: {GREEN}{v}{GRAY}]{RESET}" for k, v in kw.items())
+        print(f"  {GRAY}[{GREEN}●{GRAY}]{WHITE} {msg}  {GRAY}tok=[{WHITE}{tok}{GRAY}]{RESET}  {_kstr}")
+
+    def _tc_err(msg, tok, **kw):
+        _kstr = "  ".join(f"{GRAY}[{WHITE}{k}: {RED}{v}{GRAY}]{RESET}" for k, v in kw.items())
+        print(f"  {GRAY}[{RED}●{GRAY}]{WHITE} {msg}  {GRAY}tok=[{WHITE}{tok}{GRAY}]{RESET}  {_kstr}")
+
+    # ── Proxy URL builder ──
+    def _build_proxy_url(raw: str) -> str:
+        from urllib.parse import quote as _q
+        _parts = raw.strip().split(":", 3)
+        if len(_parts) == 4:
+            _h, _p, _u, _pw = _parts
+            return f"http://{_q(_u, safe='')}:{_q(_pw, safe='')}@{_h}:{_p}"
+        return f"http://{raw.strip()}"
+
+    # ── Checker class — mirrors original checker exactly ──
+    class _Checker:
+        def __init__(self):
+            self._sess = tls_client.Session()
+            self._sess.headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                              "AppleWebKit/537.36 (KHTML, like Gecko) "
+                              "Chrome/120.0.0.0 Safari/537.36"
+            }
+            self._set_proxy()
+
+        def _set_proxy(self):
+            if not _tc_cfg["main"].get("proxyless", True) and _tc_proxies:
+                self._sess.proxies = _build_proxy_url(random.choice(_tc_proxies))
+
+        def _make_proxyless(self):
+            """Replace session with a fresh proxyless one (called after 407)."""
+            self._sess = tls_client.Session()
+            self._sess.headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                              "AppleWebKit/537.36 (KHTML, like Gecko) "
+                              "Chrome/120.0.0.0 Safari/537.36"
+            }
+
+        def check(self):
+            while True:
+                with _LOCK:
+                    if not _tc_tokens:
+                        break
+                    _tok = _tc_tokens.pop().strip()
+
+                _tok_only = ""
+                try:
+                    _tok_only  = _tok.split(":")[-1]
+                    _tok_short = _tok_only.split(".")[0]
+                    self._sess.headers["Authorization"] = _tok_only
+
+                    _r = self._sess.get("https://discord.com/api/v9/users/@me/guilds")
+
+                    if _r.status_code == 429:
+                        _tc_err("Rate limited", _tok_short)
+                        self._set_proxy()
+                        with _LOCK:
+                            _tc_tokens.append(_tok)
+                        continue
+
+                    _current[0] += 1
+
+                    if _r.status_code == 401:
+                        _invalid[0] += 1
+                        _tc_err("Invalid", _tok_short)
+                        with _LOCK:
+                            with open(f"{_tc_out}/invalid.txt", "a") as _f:
+                                _f.write(_tok + "\n")
+                        continue
+
+                    if _r.status_code == 403:
+                        _locked[0] += 1
+                        _tc_err("Locked", _tok_short)
+                        with _LOCK:
+                            with open(f"{_tc_out}/locked.txt", "a") as _f:
+                                _f.write(_tok + "\n")
+                        continue
+
+                    if _r.status_code == 200:
+                        _r2   = self._sess.get("https://discord.com/api/v9/users/@me")
+                        _args = {}
+
+                        if _tc_sett.get("flagged"):
+                            if _r2.json().get("flags", 0) & 1048576 == 1048576:
+                                _flagged[0] += 1
+                                _tc_err("Flagged", _tok_short)
+                                with _LOCK:
+                                    with open(f"{_tc_out}/flagged.txt", "a") as _f:
+                                        _f.write(_tok + "\n")
+                                continue
+
+                        if _tc_sett.get("type"):
+                            _ttype = "unclaimed"
+                            if _r2.json().get("email") is not None:
+                                _ttype = "email verified"
+                            if _r2.json().get("phone") is not None:
+                                _ttype = "fully verified" if _ttype == "email verified" else "phone verified"
+                        else:
+                            _ttype = "valid"
+                        _args["type"] = _ttype
+
+                        if _tc_sett.get("age"):
+                            _uid     = _r2.json().get("id", "0")
+                            _created = ((int(_uid) >> 22) + 1420070400000) / 1000
+                            _age_mo  = (time.time() - _created) / 86400 / 30
+                            _age_str = (f"{_age_mo / 12:.0f} years"
+                                        if _age_mo > 12 else f"{_age_mo:.0f} months")
+                            _args["age"] = _age_str
+                            _age_dir = f"{_tc_out}/age/{_age_str}"
+                            os.makedirs(_age_dir, exist_ok=True)
+                            with _LOCK:
+                                with open(f"{_age_dir}/{_ttype}.txt", "a") as _f:
+                                    _f.write(_tok + "\n")
+
+                        if _tc_sett.get("nitro"):
+                            _r3 = self._sess.get(
+                                "https://discord.com/api/v9/users/@me/billing/subscriptions")
+                            for _sub in _r3.json():
+                                try:
+                                    _days = (time.mktime(time.strptime(
+                                        _sub["current_period_end"],
+                                        "%Y-%m-%dT%H:%M:%S.%f%z")) - time.time()) / 86400
+                                    _args["nitro"] = f"{_days:.0f}d"
+                                    _nitro[0] += 1
+                                    _r4   = self._sess.get(
+                                        "https://discord.com/api/v9/users/@me/guilds/premium/subscription-slots")
+                                    _avail = sum(1 for _slot in _r4.json()
+                                                 if _slot.get("cooldown_ends_at") is None)
+                                    _args["boosts"] = _avail
+                                    _boost_dir = f"{_tc_out}/boosts/{_days:.0f} days"
+                                    os.makedirs(_boost_dir, exist_ok=True)
+                                    with _LOCK:
+                                        with open(f"{_boost_dir}/{_avail} boosts.txt", "a") as _f:
+                                            _f.write(_tok + "\n")
+                                except Exception:
+                                    pass
+
+                        _valid[0] += 1
+                        _tc_ok("Valid", _tok_short, **_args)
+                        with _LOCK:
+                            with open(f"{_tc_out}/{_ttype}.txt", "a") as _f:
+                                _f.write(_tok + "\n")
+
+                except Exception as _e:
+                    _err_str = str(_e)
+                    _tok_part = _tok_only.split(".")[0] if _tok_only else "?"
+                    if "407" in _err_str:
+                        _tc_err("Proxy auth failed — proxyless fallback", _tok_part)
+                        _tc_cfg["main"]["proxyless"] = True
+                        self._make_proxyless()
+                        with _LOCK:
+                            _tries = _tc_retries.get(_tok, 0) + 1
+                            if _tries < 2:
+                                _tc_retries[_tok] = _tries
+                                _tc_tokens.append(_tok)
+                            else:
+                                _tc_retries.pop(_tok, None)
+                                _current[0] += 1
+                    else:
+                        _tc_err("Error", _tok_part, error=_err_str)
+                        self._set_proxy()
+                        with _LOCK:
+                            _tries = _tc_retries.get(_tok, 0) + 1
+                            if _tries < 2:
+                                _tc_retries[_tok] = _tries
+                                _tc_tokens.append(_tok)
+                            else:
+                                _tc_retries.pop(_tok, None)
+                                _current[0] += 1
+
+    # ── Launch ──
+    _title_t = threading.Thread(target=_tc_update_title, daemon=True)
+    _title_t.start()
+
+    print(f"\n  {CYAN}▸ Checking {_total} token(s) using {num_threads} thread(s){RESET}")
+    print(f"  {GRAY}Output → {_tc_out}{RESET}\n")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as _pool:
+        for _ in range(num_threads):
+            _pool.submit(_Checker().check)
+
+    _done[0] = True
+    _title_t.join(timeout=1)
+
+    _el = time.time() - _start
+    _m, _s_val = divmod(int(_el), 60)
+
+    print()
+    print(f"  {CYAN}{'─' * 56}{RESET}")
+    print(f"  {WHITE}Total checked : {CYAN}{_current[0]}{RESET}")
+    print(f"  {WHITE}Valid         : {GREEN}{_valid[0]}{RESET}")
+    print(f"  {WHITE}Invalid       : {RED}{_invalid[0]}{RESET}")
+    print(f"  {WHITE}Locked        : {YELLOW}{_locked[0]}{RESET}")
+    print(f"  {WHITE}Nitro         : {CYAN}{_nitro[0]}{RESET}")
+    print(f"  {WHITE}Flagged       : {RED}{_flagged[0]}{RESET}")
+    print(f"  {WHITE}Time          : {GRAY}{_m}m {_s_val}s{RESET}")
+    print(f"  {CYAN}{'─' * 56}{RESET}")
+    input(f"\n  {GRAY}press enter to exit...{RESET}  ")
+
+
+# ============================================================================
 # MAIN FUNCTION
 # ============================================================================
 
@@ -2322,6 +2595,25 @@ async def main():
 
     _out("\n")
     sys.stdout.flush()
+
+    # ══════════════════════════════════════════════════════════════
+    # TOOL SELECTION MENU
+    # ══════════════════════════════════════════════════════════════
+
+    _out(f"  {_gradient_line('[1]  Token Generator', bold=True)}\n")
+    _out(f"  {_gradient_line('[2]  Token Checker',   bold=True)}\n")
+    _out("\n")
+
+    _w(f"  {CYAN}▸ Select option : {RESET}")
+    _menu = input().strip()
+    print()
+
+    if _menu == "2":
+        _w(f"  {CYAN}▸ Threads for checker : {RESET}")
+        _ct_in = input().strip()
+        _ct    = int(_ct_in) if _ct_in.isdigit() and int(_ct_in) > 0 else 10
+        run_token_checker(_ct)
+        return
 
     # ══════════════════════════════════════════════════════════════
     # SETUP PROMPTS
