@@ -115,8 +115,9 @@ Token-Gen/
 │   └── locked.txt       # Locked tokens
 └── README.md
 ```
-
+📞 SUPPORT
 ---
+Discord Server: https://discord.gg/uJraw4WXqd
 
 ## 💻 Tested On
 
