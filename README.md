@@ -1,4 +1,3 @@
-#                      Discord-Token-Generator
 <p align="center">
   <img src="https://img.shields.io/badge/Version-1.0-blueviolet?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/Python-3.10+-9b59b6?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
@@ -32,12 +31,10 @@
 |---|---|
 | **Account Generation** | Fully automated Discord account creation via Brave browser + CDP |
 | **Email Verification** | Auto-verify via MS Graph (Hotmail pool), Hotmail007 API, or CyberTemp API |
-| **Captcha Solving** | NopeCHA extension integration with auto-download & key rotation |
+| **Captcha Solving** | Automated Captcha solver | Browser integrated |
 | **Proxy Support** | HTTP/SOCKS proxy rotation from `proxies.txt` |
-| **Multi-Threading** | Configurable thread count — each thread gets its own browser instance |
 | **Stealth** | TLS fingerprint spoofing via `tls_client`, headless Brave with off-screen windows |
 | **Output** | Tokens saved to `output/valid.txt`, locked/invalid sorted automatically |
-| **UI** | Neon purple/magenta gradient console, Bloody FIGlet banner, real-time logging |
 
 ---
 
@@ -45,8 +42,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/SoliderX/Token-Gen.git
-cd Token-Gen
+git clone https://github.com/AbdurRehman1098/Discord-Token-Generator.git
+cd Discord-Token-Generator
 
 # Install dependencies
 pip install -r requirements.txt
@@ -59,7 +56,6 @@ python main.py
 
 - **Python 3.10+**
 - **Brave Browser** installed (auto-detected on Windows/macOS/Linux)
-- NopeCHA keys in `nopecha_keys.txt` (one per line) — *optional but recommended*
 
 ---
 
@@ -93,7 +89,6 @@ Edit `input/config.json`:
 
 | Setting | Description |
 |---|---|
-| `Threads` | Number of parallel browser workers |
 | `hotmail_pool` | Use pre-loaded Hotmail accounts from `mails.json` |
 | `hotmail007` | Hotmail007 API — set `client_key` to enable |
 | `cybertemp` | CyberTemp temporary emails — set `api_key` to enable |
