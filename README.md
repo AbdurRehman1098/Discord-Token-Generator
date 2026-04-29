@@ -9,7 +9,7 @@
 <p align="center"><b>Discord Account Generator + Token Checker</b>
 <p align="center"><i>Made by SoliderX</i></p>
 
-<p align="center"><b>Request based gen will be release on 100 stars</b>
+<h1 align="center"><b>⭐ Request based gen will be release on 100 stars ⭐</b></h1>
 
 ---
 
