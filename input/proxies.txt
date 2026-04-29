@@ -1,0 +1,1 @@
+residential.seamlessproxies.com:7777:user:pass rotating proxy

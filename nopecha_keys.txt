@@ -1,0 +1,3 @@
+# Add your NopeCHA API keys here, one per line
+# Get keys from https://nopecha.com/setup
+# Each key gets 100 free solves

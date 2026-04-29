@@ -1,0 +1,24 @@
+{
+    "Threads": 1,
+    "email_api": {
+        "hotmail_pool": {
+            "enabled": true,
+            "file": "input/mails.json"
+        },
+        "hotmail007": {
+            "client_key": "",
+            "auto_buy": false
+        },
+        "cybertemp": {
+            "enabled": false,
+            "api_key": ""
+        }
+    },
+    "proxy": {
+        "enabled": false,
+        "file": "input/proxies.txt"
+    },
+    "adb": {
+        "path": "C:\\Program Files\\Adb\\platform-tools-latest-windows\\platform-tools\\adb.exe"
+    }
+}
