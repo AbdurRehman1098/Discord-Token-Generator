@@ -6,7 +6,7 @@
 </p>
 
 <h1 align="center">⚡ Token Gen</h1>
-<p align="center"><b>Discord Account Generator + Token Checker — all in one tool</b></p>
+<p align="center"><b>Discord Account Generator + Token Checker</b></p>
 <p align="center"><i>Made by SoliderX</i></p>
 
 ---
