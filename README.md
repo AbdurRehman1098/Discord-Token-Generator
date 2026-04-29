@@ -103,7 +103,6 @@ Edit `input/config.json`:
 Token-Gen/
 ├── main.py              # Main application
 ├── requirements.txt     # Python dependencies
-├── nopecha_keys.txt     # NopeCHA API keys (one per line)
 ├── input/
 │   ├── config.json      # Tool configuration
 │   ├── mails.json       # Hotmail pool accounts
