@@ -1,4 +1,4 @@
-# Discord-Token-Generator
+#                      Discord-Token-Generator
 <p align="center">
   <img src="https://img.shields.io/badge/Version-1.0-blueviolet?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/Python-3.10+-9b59b6?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
