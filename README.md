@@ -119,6 +119,8 @@ Token-Gen/
 ---
 Discord Server: https://discord.gg/uJraw4WXqd
 
+Join for: Free Support and upcoming Updates 
+
 ## 💻 Tested On
 
 | OS | Status |
